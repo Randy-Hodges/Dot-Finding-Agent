@@ -2,7 +2,7 @@
 This project aims to use machine learning, specifically an Actor-Critic method, to have an agent learn how to play a minigame.
 
 ### The minigame
-This is a simple game where the player controls one dot in a 2d plane and is trying to move their dot to the randomly placed 'target' dot. The player uses the arrow keys to apply forces to their dot, and this (ideally) pushes their dot towards the target dot. Once the target dot is collided with, it gets randomly moved to a new location and the game ends after once time expires. There is a bit of momentum and a slight drag force on the player dot to make the game less trivial. 
+This is a simple game where the player controls one dot in a 2d plane and is trying to move their dot to the randomly placed 'target' dot. The player uses the arrow keys to apply forces to their dot, and this (ideally) pushes their dot towards the target dot. Once the target dot is collided with, the score increases and the target dot gets randomly moved to a new location. The game ends once time expires. There is a bit of momentum and a slight drag force on the player dot to make the game less trivial. 
 
 ### Agent
 The Agent that is learning to play the game is using an Actor-Critic method, which uses two neural networks. One for choosing actions and one for evaluating how those actions will perform. I am trying to migrate my algorithm to be closer to a Proximal Policy Optimization, which from my understanding is just an actor critic method with many added 'tricks' that help the actor learn better. 
