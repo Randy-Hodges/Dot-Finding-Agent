@@ -7,7 +7,7 @@ This is a simple game where the player controls one dot in a 2d plane and is try
 ### Agent
 The Agent that is learning to play the game is using an Actor-Critic method, which uses two neural networks. One for choosing actions and one for evaluating how those actions will perform. I am trying to migrate my algorithm to be closer to a Proximal Policy Optimization, which from my understanding is just an actor critic method with many added 'tricks' that help the actor learn better. 
 
-### Success
+### Success Criteria
 Success for the agent is ultimately determined by how fast it scores points, or in otherwords, how fast it can collide with the target dot. While this might not always be the reward function for the agent, it is ultimately how I view the agent as successful.
 
 While there is more work to be done, my algorithm so far has produced an agent that can play the game somewhat well. It will actively seek out the target dot and will collide with it an average of over 3 times over a 5 second game. <insert media here>
@@ -16,7 +16,16 @@ While there is more work to be done, my algorithm so far has produced an agent t
 I want to pratice implementing ML algorithms and gain a better understanding of how they work. I felt the best way to help me understand would be through creation. 
 
 ### File Breakdown
-Will update in the future.
+black_world_agent.py - The most interesting piece of code in the repository. Defines the learning process, trains the agent, and launches the minigame.
+
+black_square_world.py - Sets up the environment for the minigame.
+
+Interactive_Objects.py - Creates a Player and Reward class for the game.
+
+ActorCritic.py - Defines the Neural network used for training.
+
+
+The rest is generally either results from training (could be organized in a better way) or are artifacts from my learning process (pretty much not important)
 
 ### Other Notes
 - I implemented this game using matplotlib because I was familiar with Matlab. Another, more standard way to display the game might have been through using something like turtle, but matplotlib is working perfectly fine and the way I choose to graphically display the game does not really matter.
