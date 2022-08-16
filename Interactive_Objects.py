@@ -31,6 +31,7 @@ class Player(object):
         self.friction = friction
         self.is_human = is_human
 
+
     def steer(self, action) -> None:
         '''Push the player in a given direction'''
         if self.is_human:
@@ -67,6 +68,7 @@ class Player(object):
             direction += 'down'
         return direction
 
+
     def map_action(self, action):
         direction = ''
         if action == 0 or action == 1 or action == 7:
@@ -82,6 +84,7 @@ class Player(object):
         #print('action:', action)
         return direction
     
+
     def update_position(self, action=9):
         '''Update the position (plus other physics values) of the player'''
         self.steer(action)
@@ -137,6 +140,7 @@ class Player(object):
             self.position[1] = ylower_bound 
         if self.position[1] >= yupper_bound:
             self.position[1] = yupper_bound
+
 
     def random_position(self):
         self.position = np.array([random.randrange(xlower_bound, xupper_bound), 

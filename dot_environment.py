@@ -2,7 +2,9 @@ import numpy as np
 import gym
 from gym.spaces import Box, Discrete
 import matplotlib.pyplot as plt 
+import matplotlib.animation as animation 
 import tensorflow as tf
+from stable_baselines3.common.env_checker import check_env
 
 from Interactive_Objects import Player, Reward
 from bw_configs import xlower_bound, xupper_bound, ylower_bound, yupper_bound,  \
@@ -25,12 +27,12 @@ class dot_environment(gym.Env):
         low = {
             'x': xlower_bound,
             'y': ylower_bound,
-            'velx': 0,
-            'vely': 0,
-            'accx': 0,
-            'accy': 0,
-            'forcex': -1,
-            'forcey': -1,
+            'velx': np.NINF,
+            'vely': np.NINF,
+            'accx': np.NINF,
+            'accy': np.NINF,
+            'forcex': -1.0,
+            'forcey': -1.0,
             'rewardx': xlower_bound,
             'rewardy': ylower_bound,
         }
@@ -41,14 +43,14 @@ class dot_environment(gym.Env):
             'vely': np.inf,
             'accx': np.inf,
             'accy': np.inf,
-            'forcex': 1,
-            'forcey': 1,
+            'forcex': 1.0,
+            'forcey': 1.0,
             'rewardx': xupper_bound,
             'rewardy': yupper_bound,
         }
-        low = np.array(list(low.values()), dtype=np.float)
-        high = np.array(list(high.values()), dtype=np.float)
-        self.observation_space = Box(low, high, dtype=np.float) 
+        low = np.array(list(low.values()), dtype=np.float32)
+        high = np.array(list(high.values()), dtype=np.float32)
+        self.observation_space = Box(low, high, dtype=np.float32) 
         # score
         self.score = 0
         # Plotting/rendering values 
@@ -58,86 +60,143 @@ class dot_environment(gym.Env):
         self.reward_marker = None
         self.score_text = None
         self.time_text = None
+        self.player = Player()
+        self.player.random_position()
+        self.reward_obj = Reward()
+        self.reward_obj.random_position()
+        
 
 
-    def step(self, action, player: Player, reward_obj: Reward):
+    def step(self, action):
         'ayoo this is my custom step function'
         global frame_number
 
         frame_number += 1
         score_change = -.01
         # Player Position
-        player.update_position(action=action)
-        x, y = player.position
-        # print(f'x:{x}, y:{y}, accel:{player.acceleration}, vel:{player.velocity}, framecount:{framecount}')
+        self.player.update_position(action=action)
+        x, y = self.player.position
+        # print(f'x:{x}, y:{y}, accel:{self.player.acceleration}, vel:{self.player.velocity}, framecount:{framecount}')
 
-        reward = self.reward_function(player, reward_obj)
+        reward = self.reward_function()
         #time_text.set_text(time_template % (FRAME_INTERVAL*framecount/1000))
         done = False
         if frame_number >= FRAMES:
             frame_number = 0
             done = True
+        state = self.get_state()
 
-        return np.array([player.position[0], player.position[1], player.velocity[0], player.velocity[1], \
-                         player.acceleration[0], player.acceleration[1], player.force[0], player.force[1], \
-                         reward_obj.position[0], reward_obj.position[1], \
-                         ]), \
-               np.array(reward), \
-               np.array(done)
+        return  state, \
+                reward, \
+                done, \
+                {}
+            
         
 
-    def reward_function(self, player: Player, reward_obj: Reward):
+    def reward_function(self):
         '''Gives the reward for each step in the environment'''
         # Check if reward received
         reward = 0
 
         # reward for contacting the dot
-        if np.linalg.norm(player.position - reward_obj.position) <= ((REWARD_SIZE/2 + DOT_SIZE/2)):
+        if np.linalg.norm(self.player.position - self.reward_obj.position) <= ((REWARD_SIZE/2 + DOT_SIZE/2)):
             reward += 100
             self.score += 100
-            reward_obj.random_position()
+            self.reward_obj.random_position()
 
         # penalty for moving away from the dot
-        # if np.dot(reward_obj.position - player.position, player.velocity) <= 0:
+        # if np.dot(self.reward_obj.position - self.player.position, self.player.velocity) <= 0:
         #     reward -= 1
 
         # rewarding based on velocity towards target (clipped at -2 and 2)
-        player_to_reward = np.array(reward_obj.position - player.position)
-        reward += np.clip(float(np.dot(player.velocity, player_to_reward/np.linalg.norm(player_to_reward))), -2, 2)
+        player_to_reward = np.array(self.reward_obj.position - self.player.position)
+        reward += np.clip(float(np.dot(self.player.velocity, player_to_reward/np.linalg.norm(player_to_reward))), -2, 2)
 
         # penalty for getting stuck in corner
-        if abs(player.position[0]) == abs(xlower_bound)-3:
+        if abs(self.player.position[0]) == abs(xlower_bound)-3:
             #reward -= 1
-            if abs(player.position[1]) == abs(xlower_bound)-3:
+            if abs(self.player.position[1]) == abs(xlower_bound)-3:
                 reward -= 2
 
-        return reward
+        return float(reward)
 
 
-    def reset(self, player: Player, reward_obj: Reward):
-        reward_obj.random_position()
-        player.random_position()
+    def reset(self):
+        self.reward_obj.random_position()
+        self.player.random_position()
         self.score = 0
-        state = np.array([player.position[0], player.position[1], player.velocity[0], player.velocity[1], \
-                         player.acceleration[0], player.acceleration[1], player.force[0], player.force[1], \
-                         reward_obj.position[0], reward_obj.position[1], \
+        state = np.array([self.player.position[0], self.player.position[1], self.player.velocity[0], self.player.velocity[1], \
+                         self.player.acceleration[0], self.player.acceleration[1], self.player.force[0], self.player.force[1], \
+                         self.reward_obj.position[0], self.reward_obj.position[1] \
                          ])
         return state.astype(np.float32)
 
 
-    def get_state(self, player: Player, reward_obj: Reward):
-        state = np.array([player.position[0], player.position[1], player.velocity[0], player.velocity[1], \
-                         player.acceleration[0], player.acceleration[1], player.force[0], player.force[1], \
-                         reward_obj.position[0], reward_obj.position[1], \
+    def get_state(self):
+        state = np.array([self.player.position[0], self.player.position[1], self.player.velocity[0], self.player.velocity[1], \
+                         self.player.acceleration[0], self.player.acceleration[1], self.player.force[0], self.player.force[1], \
+                         self.reward_obj.position[0], self.reward_obj.position[1] \
                          ])
+        state = state.astype(np.float32)
         return state
     
-        
+
+
+def render(env, model, print_states = False):
+  # preconfigure the black, square world
+  plt.style.use('dark_background')
+  fig = plt.figure(figsize=(5,5)) 
+  ax = fig.add_subplot(xlim=(xlower_bound - BORDER_DELTA, xupper_bound + BORDER_DELTA), ylim=(ylower_bound - BORDER_DELTA, yupper_bound + BORDER_DELTA)) 
+  bbox = ax.get_window_extent().transformed(fig.dpi_scale_trans.inverted())
+  width, height = bbox.width, bbox.height
+
+  point = 1/72 # inches
+  inches_per_unit_width = width/(xupper_bound - xlower_bound) # one unit = this many inches | inches/units
+  points_per_unit_width = inches_per_unit_width/point # one unit = this many points | (72 point / 1 inch)(inches_per_unit_width / 1 unit)
+
+  DOT_SIZE2 = DOT_SIZE*points_per_unit_width
+  REWARD_SIZE2 = REWARD_SIZE*points_per_unit_width
+
+  player_marker, = ax.plot([], [], 'o-', markersize=DOT_SIZE2)  
+  reward_marker, = ax.plot([], [], 'o-',color='red', markersize=REWARD_SIZE2)
+  score_text = ax.text(xlower_bound + 5, yupper_bound - 5, str(env.score))
+  time_template = '%.1fs'
+  time_text = ax.text(xupper_bound - 10, yupper_bound - 5, '0')
+
+  def animate(framecount):
+    obs = env.get_state()
+    action, _states = model.predict(obs)
+    obs, _, done, _ = env.step(action)
+    
+    # stop animation if env is done
+    if done:
+      anim.event_source.stop()
+      plt.close()
+
+    player_marker.set_data(env.player.position)
+    if print_states:
+      tf.print(f'Pos: [{env.player.position[0]}, {env.player.position[1]}], Action: {action}')
+    reward_marker.set_data(env.reward_obj.position)
+    score_text.set_text(str(env.score))
+    time_text.set_text(time_template % (FRAME_INTERVAL*framecount/1000))
+
+    return player_marker, reward_marker, score_text, time_text
+  
+  def world_init(): 
+    '''Initialization function for the square world'''
+    env.reset()
+    player_marker.set_data(env.player.position) 
+    reward_marker.set_data(env.reward_obj.position)
+    return player_marker, reward_marker, score_text, time_text
+
+  anim = animation.FuncAnimation(fig, animate, init_func=world_init, 
+                                frames=int(FRAMES), interval=FRAME_INTERVAL, blit=True, repeat=False) 
+  plt.show()
+ 
 
         
                          
 if __name__ == '__main__':
-    player = Player()
-    reward = Reward()
+   
     env = dot_environment()
-    env.step(2, player, reward)
+    check_env(env)

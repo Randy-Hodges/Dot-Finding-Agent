@@ -47,12 +47,13 @@ actions_str = ''
 # Small epsilon value for stabilizing division operations
 eps = np.finfo(np.float32).eps.item()
 
+# region Algorithm
 def env_step(action: np.ndarray) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
   """Returns state, reward and done flag given an action."""
   global actions_str
   if print_action:
     actions_str += str(action)
-  state, reward, done = env.step(action, player, reward_obj)
+  state, reward, done, _ = env.step(action)
   return (state.astype(np.float32), 
           np.array(reward, np.int32), 
           np.array(done, np.int32))
@@ -140,6 +141,7 @@ def get_expected_return(
 
 huber_loss = tf.keras.losses.Huber(reduction=tf.keras.losses.Reduction.SUM)
 
+
 def compute_loss(
   action_probs: tf.Tensor,
   values: tf.Tensor,
@@ -181,7 +183,7 @@ def training_step(
     # compute loss
     loss = compute_loss(action_probs, values, returns)
    
-
+   
   # Compute the gradients from the loss
   grads = tape.gradient(loss, model.trainable_variables)
 
@@ -191,27 +193,28 @@ def training_step(
   episode_reward = tf.math.reduce_sum(rewards)
 
   return episode_reward, loss
+# endregion
 
 
-def render_episode(env, model: tf.keras.Model, max_steps: int, player, reward_obj): 
+def render_episode(env, model: tf.keras.Model, max_steps: int): 
 
-  state = tf.constant(env.reset(player, reward_obj), dtype=tf.float32)
+  state = tf.constant(env.reset(), dtype=tf.float32)
   for i in range(1, max_steps + 1):
     state = tf.expand_dims(state, 0)
     action_probs, _ = model(state)
     action = np.argmax(np.squeeze(action_probs))
     tf.print(action, end='')
 
-    state, _, done = env.step(action, player, reward_obj)
+    state, _, done, _ = env.step(action)
     state = tf.constant(state, dtype=tf.float32)
 
-    env.render(player, reward_obj)
+    env.render()
 
     if done:
       break
 
 
-def render(env, model, player, reward_obj, print_states = False):
+def render(env, model, print_states = False):
   # preconfigure the black, square world
   plt.style.use('dark_background')
   fig = plt.figure(figsize=(5,5)) 
@@ -232,12 +235,12 @@ def render(env, model, player, reward_obj, print_states = False):
   time_template = '%.1fs'
   time_text = ax.text(xupper_bound - 10, yupper_bound - 5, '0')
 
-  initial_state = tf.constant(env.reset(player, reward_obj), dtype=tf.float32)
+  initial_state = tf.constant(env.reset(), dtype=tf.float32)
 
   def animate(framecount):
 
     # convert state into a batched tensor (batch size = 1), flattens the state?*
-    state = tf.expand_dims(env.get_state(player, reward_obj), 0)
+    state = tf.expand_dims(env.get_state(), 0)
 
     # run model with state to get action_probs and critic value
     action_logits_t, value = model(state)
@@ -246,7 +249,7 @@ def render(env, model, player, reward_obj, print_states = False):
     action = tf.random.categorical(action_logits_t, 1)[0,0]
 
     # apply action
-    state, reward, done = tf_env_step(action)
+    state, reward, done, _ = tf_env_step(action)
     state = tf.constant(state, dtype=tf.float32)
     
     # stop animation if env is done
@@ -254,10 +257,10 @@ def render(env, model, player, reward_obj, print_states = False):
       anim.event_source.stop()
       plt.close()
 
-    player_marker.set_data(player.position)
+    player_marker.set_data(env.player.position)
     if print_states:
-      tf.print(f'Pos: [{player.position[0]}, {player.position[1]}], Action: {action}')
-    reward_marker.set_data(reward_obj.position)
+      tf.print(f'Pos: [{env.player.position[0]}, {env.player.position[1]}], Action: {action}')
+    reward_marker.set_data(env.reward_obj.position)
     score_text.set_text(str(env.score))
     time_text.set_text(time_template % (FRAME_INTERVAL*framecount/1000))
 
@@ -265,9 +268,9 @@ def render(env, model, player, reward_obj, print_states = False):
   
   def world_init(): 
     '''Initialization function for the square world'''
-    env.reset(player, reward_obj)
-    player_marker.set_data(player.position) 
-    reward_marker.set_data(reward_obj.position)
+    env.reset()
+    player_marker.set_data(env.player.position) 
+    reward_marker.set_data(env.reward_obj.position)
     return player_marker, reward_marker, score_text, time_text
 
   anim = animation.FuncAnimation(fig, animate, init_func=world_init, 
@@ -321,7 +324,7 @@ def run_training_loop(model: tf.keras.Model):
   with tqdm.trange(max_episodes) as t:
     for i in t:
       # get episode reward
-      initial_state = env.reset(player, reward_obj)
+      initial_state = env.reset()
       episode_reward, loss = map(int, list(training_step(initial_state, model, gamma, FRAMES, optimizer)))
       with train_summary_writer.as_default():
         tf.summary.scalar('Loss', loss, step=i)
@@ -376,14 +379,14 @@ def run_training_loop(model: tf.keras.Model):
         print(f'\nSolved at episode {i}: average reward: {running_reward:.2f}!')
         model.save('./models/best_model1')
         model_weights = model.get_weights()
-        render(env, model, player, reward_obj)
+        render(env, model)
         return True, model_weights
 
       # Render episode every render_rate episodes
       if i%render_rate == 0 and i != 0:
         print_action = False
         actions_str = ''
-        render(env, model, player, reward_obj, print_states=False)
+        render(env, model, print_states=False)
 
   return False, model_weights
 
@@ -402,7 +405,7 @@ if success:
 #     break
 
 for _ in range(20):
-  render(env, model, player, reward_obj)
+  render(env, model)
 # endregion
 exit()
 
