@@ -1,3 +1,4 @@
+import time
 import numpy as np
 import gym
 from gym.spaces import Box, Discrete
@@ -16,11 +17,30 @@ score = 0
 frame_number = 0 # used to count frames in the step function
 
 time_template = '%.1fs'
-render_preconfig = False
+# preconfigure the black, square world
+plt.style.use('dark_background')
+plt.ion()
+fig = plt.figure(figsize=(5,5)) 
+ax = fig.add_subplot(xlim=(xlower_bound - BORDER_DELTA, xupper_bound + BORDER_DELTA), ylim=(ylower_bound - BORDER_DELTA, yupper_bound + BORDER_DELTA)) 
+bbox = ax.get_window_extent().transformed(fig.dpi_scale_trans.inverted())
+width, height = bbox.width, bbox.height
+
+point = 1/72 # inches
+inches_per_unit_width = width/(xupper_bound - xlower_bound) # one unit = this many inches | inches/units
+points_per_unit_width = inches_per_unit_width/point # one unit = this many points | (72 point / 1 inch)(inches_per_unit_width / 1 unit)
+
+DOT_SIZE2 = DOT_SIZE*points_per_unit_width
+REWARD_SIZE2 = REWARD_SIZE*points_per_unit_width
+
+player_marker, = ax.plot([], [], 'o-', markersize=DOT_SIZE2)  
+reward_marker, = ax.plot([], [], 'o-',color='red', markersize=REWARD_SIZE2)
+score_text = ax.text(xlower_bound + 5, yupper_bound - 5, "0")
+time_template = '%.1fs'
+time_text = ax.text(xupper_bound - 10, yupper_bound - 5, '0')
 
 class dot_environment(gym.Env):
 
-    def __init__(self):
+    def __init__(self): 
         # action space
         self.action_space = Discrete(9) # 8 directions plus no movement (so 9 options)
         # observation space
@@ -66,7 +86,6 @@ class dot_environment(gym.Env):
         self.reward_obj.random_position()
         
 
-
     def step(self, action):
         'ayoo this is my custom step function'
         global frame_number
@@ -90,8 +109,7 @@ class dot_environment(gym.Env):
                 reward, \
                 done, \
                 {}
-            
-        
+               
 
     def reward_function(self):
         '''Gives the reward for each step in the environment'''
@@ -140,6 +158,18 @@ class dot_environment(gym.Env):
         state = state.astype(np.float32)
         return state
     
+    
+    def render(self):
+        player_marker.set_data(self.player.position)
+        reward_marker.set_data(self.reward_obj.position)
+        score_text.set_text(str(self.score))
+        time_text.set_text(time_template % (FRAME_INTERVAL*frame_number/1000))
+        fig.canvas.draw()
+        time.sleep(FRAME_INTERVAL/1000)
+
+
+    def close(self):
+        plt.close()
 
 
 def render(env, model, print_states = False):
