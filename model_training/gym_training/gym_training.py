@@ -2,10 +2,10 @@ import gym
 import time
 
 from stable_baselines3 import PPO
-from bw_configs import FRAME_INTERVAL
+from env.bw_configs import FRAME_INTERVAL
 # from stable_baselines3.common.env_util import make_vec_env
 from dot_environment import render
-import dot_environment
+import dot_environment as dot_environment
 
 # Parallel environments
 env = dot_environment.dot_environment()

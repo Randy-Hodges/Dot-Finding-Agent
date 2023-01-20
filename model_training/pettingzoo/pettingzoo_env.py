@@ -1,9 +1,8 @@
-import functools
 import numpy as np
-from gym.spaces import Discrete
-from pettingzoo import ParallelEnv
+import functools
+from pettingzoo import AECEnv
+from pettingzoo.utils import agent_selector
 from pettingzoo.utils import wrappers
-from pettingzoo.utils import parallel_to_aec
 from pettingzoo.test import api_test
 
 import gym
@@ -12,12 +11,11 @@ import matplotlib.pyplot as plt
 import matplotlib.animation as animation 
 import tensorflow as tf
 
-from Interactive_Objects import Player, Reward
-from bw_configs import xlower_bound, xupper_bound, ylower_bound, yupper_bound,  \
+from env.interactive_objects import Player, Reward
+from env.bw_configs import xlower_bound, xupper_bound, ylower_bound, yupper_bound,  \
     FRAME_INTERVAL, ANIM_TIME, FRAMES, DOT_SIZE, REWARD_SIZE, BORDER_DELTA, \
     ZERO_LIMIT
 
-print("---------------------------------------------------------------------\n")
 score = 0
 frame_number = 0 # used to count frames in the step function 
 time_template = '%.1fs'
@@ -32,37 +30,35 @@ def env():
     env = raw_env()
     # This wrapper is only for environments which print results to the terminal
     env = wrappers.CaptureStdoutWrapper(env)
-    # this wrapper helps error handling for discrete action spaces
-    env = wrappers.AssertOutOfBoundsWrapper(env)
+    # # this wrapper helps error handling for discrete action spaces
+    # env = wrappers.AssertOutOfBoundsWrapper(env)
     # Provides a wide vareity of helpful user errors
     # Strongly recommended
     env = wrappers.OrderEnforcingWrapper(env)
     return env
 
 
-def raw_env():
+class raw_env(AECEnv):
     """
-    To support the AEC API, the raw_env() function just uses the from_parallel
-    function to convert from a ParallelEnv to an AEC env
+    The metadata holds environment constants. From gym, we inherit the "render_modes",
+    metadata which specifies which modes can be put into the render() method.
+    At least human mode should be supported.
+    The "name" metadata allows the environment to be pretty printed.
     """
-    env = parallel_env()
-    env = parallel_to_aec(env)
-    return env
 
-
-class parallel_env(ParallelEnv):
-    metadata = {"render_modes": ["human"], "name": "pettingzoo_parallel"}
+    metadata = {"render_modes": ["human"], "name": "pettingzoo_multidot"}
 
     def __init__(self):
         """
-        The init method takes in environment arguments and should define the following attributes:
+        The init method takes in environment arguments and
+         should define the following attributes:
         - possible_agents
         - action_spaces
         - observation_spaces
 
         These attributes should not be changed after initialization.
         """
-        self.my_num_agents = 3
+        self.my_num_agents = 2
         self.possible_agents = ["player_" + str(r) for r in range(self.my_num_agents)]
         self.agent_name_mapping = dict(
             zip(self.possible_agents, list(range(len(self.possible_agents))))
@@ -115,13 +111,13 @@ class parallel_env(ParallelEnv):
             player.random_position()
         self.reward_obj = Reward()
         self.reward_obj.random_position()
-        self.frame_number = 0
 
 
     # this cache ensures that same space object is returned for the same agent
     # allows action space seeding to work as expected
     @functools.lru_cache(maxsize=None)
     def observation_space(self, agent):
+        # Gym spaces are defined and documented here: https://gym.openai.com/docs/#spaces
         return self.obsspace
 
 
@@ -135,14 +131,20 @@ class parallel_env(ParallelEnv):
         Renders the environment. In human mode, it can print to terminal, open
         up a graphical window, or open up some other display that a human can see and understand.
         """
-        # if len(self.agents) == 2:
-        #     string = "Current state: Agent1: {} , Agent2: {}".format(
-        #         MOVES[self.state[self.agents[0]]], MOVES[self.state[self.agents[1]]]
-        #     )
-        # else:
-        #     string = "Game over"
-        # print(string)
-        pass
+        if len(self.agents) == 2:
+            string="dummy"
+        else:
+            string = "not 2"
+
+
+    def observe(self, agent):
+        """
+        Observe should return the observation of the specified agent. This function
+        should return a sane observation (though not necessarily the most up to date possible)
+        at any time after reset() is called.
+        """
+        # observation of one agent is the previous state of the other
+        return np.array(self.observations[agent])
 
 
     def close(self):
@@ -154,70 +156,106 @@ class parallel_env(ParallelEnv):
         pass
 
 
-    def reset(self, seed=None, **kargs):
+    def reset(self, seed=None, **kargs):  
         """
-        Reset needs to initialize the `agents` attribute and must set up the
-        environment so that render(), and step() can be called without issues.
-
-        Here it initializes the `num_moves` variable which counts the number of
-        hands that are played.
-
-        Returns the observations for each agent
-        """
-        self.agents = self.possible_agents[:]
-        # print(f"self.agents: {self.agents}")
-        self.num_moves = 0
-        observations = {agent: self.get_state(agent) for agent in self.agents}
-        return observations
-
-
-    def step(self, actions):
-        """
-        step(action) takes in an action for each agent and should return the
-        - observations
+        Reset needs to initialize the following attributes
+        - agents
         - rewards
+        - _cumulative_rewards
         - dones
         - infos
-        dicts where each dict looks like {agent_1: item_1, agent_2: item_2}
+        - agent_selection
+        And must set up the environment so that render(), step(), and observe()
+        can be called without issues.
+
+        Here it sets up the state dictionary which is used by step() and the observations dictionary which is used by step() and observe()
         """
-        # If a user passes in actions with no agents, then just return empty observations, etc.
-        if not actions:
-            self.agents = []
-            return {}, {}, {}, {}
-        
-        self.frame_number += 1
+        self.agents = self.possible_agents[:]
+        self.rewards = {agent: 0 for agent in self.agents}
+        self._cumulative_rewards = {agent: 0 for agent in self.agents}
+        self.dones = {agent: False for agent in self.agents}
+        self.infos = {agent: {} for agent in self.agents}
 
-        # perform actions
-        for agent, action in actions.items():
-            player = self.get_player(agent)
-            player.update_position(action=action)
+        self.state = {agent: self.get_state(agent) for agent in self.agents}
+        self.observations = {agent: self.get_state(agent) for agent in self.agents}
+        """
+        Our agent_selector utility allows easy cyclic stepping through the agents list.
+        """
+        self._agent_selector = agent_selector(self.agents)
+        self.agent_selection = self._agent_selector.next()
 
-        # rewards for all agents are placed in the rewards dictionary to be returned
-        rewards = {}
-        rewards = {agent: self.get_reward(agent) for agent in self.agents}
 
-        # update dones
+    def step(self, action):
+        """
+        step(action) takes in an action for the current agent (specified by
+        agent_selection) and needs to update
+        - rewards
+        - _cumulative_rewards (accumulating the rewards)
+        - dones
+        - infos
+        - agent_selection (to the next agent)
+        And any internal state used by observe() or render()
+        """
+        global frame_number
+        frame_number += 1/self.my_num_agents
+        if self.dones[self.agent_selection]:
+            # handles stepping an agent which is already done
+            # accepts a None action for the one agent, and moves the agent_selection to
+            # the next done agent,  or if there are no more done agents, to the next live agent
+            return self._was_done_step(action)
+
+        agent = self.agent_selection
+        player = self.get_player(agent)
+
+        # the agent which stepped last had its _cumulative_rewards accounted for
+        # (because it was returned by last()), so the _cumulative_rewards for this
+        # agent should start again at 0
+        self._cumulative_rewards[agent] = 0
+
+        # stores action of current agent
+        self.state[self.agent_selection] = action
+
+        # performs action
+        player.update_position(action=action)
+
+        # updates reward
+        reward = self.reward_function(agent) 
+        self.rewards[agent] = reward
+
         # updates dones
         done = False
-        if self.frame_number >= FRAMES:
-            # self.frame_number = 0
+        if frame_number >= FRAMES:
+            # frame_number = 0
             done = True
-        dones = {agent: done for agent in self.agents}
+        self.dones[agent] = done
 
-        # current observation is just the other player's most recent action
-        observations = {agent: self.get_state(agent) for agent in self.agents}
+        # # collect reward if it is the last agent to act
+        # if self._agent_selector.is_last():
+        #     # rewards for all agents are placed in the .rewards dictionary
+        #     self.rewards[self.agents[0]], self.rewards[self.agents[1]] = #number reward
 
-        # typically there won't be any information in the infos, but there must
-        # still be an entry for each agent
-        infos = {agent: {} for agent in self.agents}
+        #     self.num_moves += 1
+        #     # The dones dictionary must be updated for all players.
+        #     self.dones = {agent: self.num_moves >= NUM_ITERS for agent in self.agents} 
 
-        if done:
-            self.agents = []
+        #     # observe the current state
+        #     for i in self.agents:
+        #         self.observations[i] = self.state[
+        #             self.agents[1 - self.agent_name_mapping[i]]
+        #         ]
+        # else:
+        #     # necessary so that observe() returns a reasonable observation at all times.
+        #     self.state[self.agents[1 - self.agent_name_mapping[agent]]] = NONE
+        #     # no rewards are allocated until both players give an action
+        #     self._clear_rewards()
 
-        return observations, rewards, dones, infos
+        # selects the next agent.
+        self.agent_selection = self._agent_selector.next()
+        # Adds .rewards to ._cumulative_rewards
+        self._accumulate_rewards()
 
 
-    def get_reward(self, agent):
+    def reward_function(self, agent):
         '''Gives the reward for each step in the environment'''
         # Check if reward received
         reward = 0
@@ -246,7 +284,7 @@ class parallel_env(ParallelEnv):
 
         return float(reward)
 
-        
+    
     def get_state(self, agent):
         player = self.get_player(agent)
         state = np.array([player.position[0], player.position[1], player.velocity[0], player.velocity[1], \
@@ -264,8 +302,7 @@ class parallel_env(ParallelEnv):
         return player
 
 
-
-def render_parallel(env, model, print_states = False):
+def render_custom(env, model, print_states = False):
     # preconfigure the black, square world
     plt.style.use('dark_background')
     fig = plt.figure(figsize=(5,5)) 
@@ -286,7 +323,7 @@ def render_parallel(env, model, print_states = False):
     time_text = ax.text(xupper_bound - 10, yupper_bound - 5, '0')
 
     def animate(framecount):
-        obs, rewards, dones, infos = env.step()
+        obs, reward, done, info = env.last()
         action, _states = model.predict(obs)
         env.step(action)
         # obs = env.get_state()
@@ -323,6 +360,8 @@ def render_parallel(env, model, print_states = False):
     plt.show()
 
 
+
 if __name__ == '__main__':
     env = env()
     api_test(env, num_cycles=1000, verbose_progress=False)
+

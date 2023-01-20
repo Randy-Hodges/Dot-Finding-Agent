@@ -1,7 +1,7 @@
 import keyboard
 import random
 import numpy as np
-from bw_configs import xlower_bound, xupper_bound, ylower_bound, yupper_bound, BORDER_DELTA, ZERO_LIMIT, REWARD_SIZE
+from bw_configs import *
 
 
 class Player(object):
@@ -19,8 +19,9 @@ class Player(object):
                 friction = .1,
                 is_human = False
                 ):
-        self.pid = self.id
-        self.id += 1
+        self.pid = Player.id
+        Player.id += 1
+        self.reward = 0
         self.position = position
         self.velocity = velocity
         self.acceleration = acceleration
@@ -145,6 +146,10 @@ class Player(object):
     def random_position(self):
         self.position = np.array([random.randrange(xlower_bound, xupper_bound), 
                          random.randrange(ylower_bound, yupper_bound)])
+
+                    
+    def __str__(self) -> str:
+        return f"PID: {self.pid}, Pos: {str(self.position)}"
 
 
 

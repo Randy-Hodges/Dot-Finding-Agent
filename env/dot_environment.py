@@ -5,9 +5,10 @@ from gym.spaces import Box, Discrete
 import matplotlib.pyplot as plt 
 import matplotlib.animation as animation 
 import tensorflow as tf
-from stable_baselines3.common.env_checker import check_env
+# from stable_baselines3.common.env_checker import check_env
+from ray.rllib.env.env_context import EnvContext
 
-from Interactive_Objects import Player, Reward
+from interactive_objects import Player, Reward
 from bw_configs import xlower_bound, xupper_bound, ylower_bound, yupper_bound,  \
     FRAME_INTERVAL, ANIM_TIME, FRAMES, DOT_SIZE, REWARD_SIZE, BORDER_DELTA, \
     ZERO_LIMIT
@@ -16,31 +17,31 @@ from bw_configs import xlower_bound, xupper_bound, ylower_bound, yupper_bound,  
 score = 0
 frame_number = 0 # used to count frames in the step function
 
-time_template = '%.1fs'
-# preconfigure the black, square world
-plt.style.use('dark_background')
-plt.ion()
-fig = plt.figure(figsize=(5,5)) 
-ax = fig.add_subplot(xlim=(xlower_bound - BORDER_DELTA, xupper_bound + BORDER_DELTA), ylim=(ylower_bound - BORDER_DELTA, yupper_bound + BORDER_DELTA)) 
-bbox = ax.get_window_extent().transformed(fig.dpi_scale_trans.inverted())
-width, height = bbox.width, bbox.height
+# time_template = '%.1fs'
+# # preconfigure the black, square world
+# plt.style.use('dark_background')
+# plt.ion()
+# fig = plt.figure(figsize=(5,5)) 
+# ax = fig.add_subplot(xlim=(xlower_bound - BORDER_DELTA, xupper_bound + BORDER_DELTA), ylim=(ylower_bound - BORDER_DELTA, yupper_bound + BORDER_DELTA)) 
+# bbox = ax.get_window_extent().transformed(fig.dpi_scale_trans.inverted())
+# width, height = bbox.width, bbox.height
 
-point = 1/72 # inches
-inches_per_unit_width = width/(xupper_bound - xlower_bound) # one unit = this many inches | inches/units
-points_per_unit_width = inches_per_unit_width/point # one unit = this many points | (72 point / 1 inch)(inches_per_unit_width / 1 unit)
+# point = 1/72 # inches
+# inches_per_unit_width = width/(xupper_bound - xlower_bound) # one unit = this many inches | inches/units
+# points_per_unit_width = inches_per_unit_width/point # one unit = this many points | (72 point / 1 inch)(inches_per_unit_width / 1 unit)
 
-DOT_SIZE2 = DOT_SIZE*points_per_unit_width
-REWARD_SIZE2 = REWARD_SIZE*points_per_unit_width
+# DOT_SIZE2 = DOT_SIZE*points_per_unit_width
+# REWARD_SIZE2 = REWARD_SIZE*points_per_unit_width
 
-player_marker, = ax.plot([], [], 'o-', markersize=DOT_SIZE2)  
-reward_marker, = ax.plot([], [], 'o-',color='red', markersize=REWARD_SIZE2)
-score_text = ax.text(xlower_bound + 5, yupper_bound - 5, "0")
-time_template = '%.1fs'
-time_text = ax.text(xupper_bound - 10, yupper_bound - 5, '0')
+# player_marker, = ax.plot([], [], 'o-', markersize=DOT_SIZE2)  
+# reward_marker, = ax.plot([], [], 'o-',color='red', markersize=REWARD_SIZE2)
+# score_text = ax.text(xlower_bound + 5, yupper_bound - 5, "0")
+# time_template = '%.1fs'
+# time_text = ax.text(xupper_bound - 10, yupper_bound - 5, '0')
 
 class dot_environment(gym.Env):
 
-    def __init__(self): 
+    def __init__(self, config: EnvContext = {}): 
         # action space
         self.action_space = Discrete(9) # 8 directions plus no movement (so 9 options)
         # observation space
@@ -160,19 +161,20 @@ class dot_environment(gym.Env):
     
     
     def render(self):
-        player_marker.set_data(self.player.position)
-        reward_marker.set_data(self.reward_obj.position)
-        score_text.set_text(str(self.score))
-        time_text.set_text(time_template % (FRAME_INTERVAL*frame_number/1000))
-        fig.canvas.draw()
-        time.sleep(FRAME_INTERVAL/1000)
+        print(f"score:{self.score}")
+        # player_marker.set_data(self.player.position)
+        # reward_marker.set_data(self.reward_obj.position)
+        # score_text.set_text(str(self.score))
+        # time_text.set_text(time_template % (FRAME_INTERVAL*frame_number/1000))
+        # fig.canvas.draw()
+        # time.sleep(FRAME_INTERVAL/1000)
 
 
     def close(self):
         plt.close()
 
 
-def render(env, model, print_states = False):
+def render(env, model, print_states = False, rllib = False):
   # preconfigure the black, square world
   plt.style.use('dark_background')
   fig = plt.figure(figsize=(5,5)) 
@@ -195,7 +197,11 @@ def render(env, model, print_states = False):
 
   def animate(framecount):
     obs = env.get_state()
-    action, _states = model.predict(obs)
+    if rllib:
+        action = model.compute_single_action(obs)
+    else:
+        action, _states = model.predict(obs)
+        
     obs, _, done, _ = env.step(action)
     
     # stop animation if env is done
@@ -212,6 +218,7 @@ def render(env, model, print_states = False):
 
     return player_marker, reward_marker, score_text, time_text
   
+  
   def world_init(): 
     '''Initialization function for the square world'''
     env.reset()
@@ -222,11 +229,9 @@ def render(env, model, print_states = False):
   anim = animation.FuncAnimation(fig, animate, init_func=world_init, 
                                 frames=int(FRAMES), interval=FRAME_INTERVAL, blit=True, repeat=False) 
   plt.show()
- 
-
         
                          
 if __name__ == '__main__':
    
     env = dot_environment()
-    check_env(env)
+    # check_env(env)

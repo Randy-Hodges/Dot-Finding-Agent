@@ -9,7 +9,7 @@ import numpy as np
 
 from bw_configs import FRAMES, FRAME_INTERVAL, DOT_SIZE, REWARD_SIZE, BORDER_DELTA, xlower_bound, \
     xupper_bound, ylower_bound, yupper_bound
-from Interactive_Objects import Player, Reward
+from interactive_objects import Player, Reward
 
 score = 0
 is_human = True

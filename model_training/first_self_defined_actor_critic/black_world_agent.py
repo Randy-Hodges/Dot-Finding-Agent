@@ -15,10 +15,10 @@ import pickle
 import matplotlib.pyplot as plt 
 import matplotlib.animation as animation 
 # custom
-import dot_environment
-from ActorCritic import ActorCritic
-from Interactive_Objects import Player, Reward
-from bw_configs import FRAMES, FRAME_INTERVAL, DOT_SIZE, REWARD_SIZE, BORDER_DELTA, xlower_bound, \
+import rllib_single.dot_environment as dot_environment
+from first_self_defined_actor_critic.ActorCritic import ActorCritic
+from env.interactive_objects import Player, Reward
+from env.bw_configs import FRAMES, FRAME_INTERVAL, DOT_SIZE, REWARD_SIZE, BORDER_DELTA, xlower_bound, \
     xupper_bound, ylower_bound, yupper_bound
 print('----------------------------')
 

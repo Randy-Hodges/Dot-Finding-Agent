@@ -11,7 +11,13 @@ env = pettingzoo_env_parallel.parallel_env()
 env = ss.pettingzoo_env_to_vec_env_v1(env)
 env = ss.concat_vec_envs_v1(env, 1, num_cpus=1, base_class='stable_baselines3')
 model = PPO("MlpPolicy", env, verbose=1)
-model.learn(total_timesteps=30000)
+model.learn(total_timesteps=10000)
+# # model.save("parallel_100000")
+# # del model
+# model = PPO.load("parallel_100000")
+# for _ in range(2):
+#     pettingzoo_env_parallel.render_parallel(env, model)
+
 # env.reset()
 # for agent in env.agent_iter():
 #     observation, reward, done, info = env.last()
@@ -27,6 +33,12 @@ model.learn(total_timesteps=30000)
 #    env.step(act)
 #    env.render()
 # endregion
+# env = pettingzoo_env.env()
+# model = PPO("MlpPolicy", env, verbose=1)
+# model.learn(total_timesteps=10000)
+# model = PPO.load("parallel_100000")
 
+for _ in range(2):
+    pettingzoo_env.render_custom(env, model)
 
 
