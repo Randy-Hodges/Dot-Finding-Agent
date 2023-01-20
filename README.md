@@ -25,7 +25,7 @@ Interactive_Objects.py - Creates a Player and Reward class for the game.
 ActorCritic.py - Defines the Neural network used for training.
 
 
-The rest is generally either results from training (could be organized in a better way) or are artifacts from my learning process (pretty much not important)
+The rest is generally either results from training or are artifacts from my learning process (pretty much not important)
 
 ### Other Notes
 - I implemented this game using matplotlib because I was familiar with Matlab. Another, more standard way to display the game might have been through using something like turtle, but matplotlib is working perfectly fine and the way I choose to graphically display the game does not really matter.
