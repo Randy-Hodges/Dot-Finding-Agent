@@ -29,7 +29,7 @@ parser.add_argument(
 parser.add_argument(
     "--framework",
     choices=["tf", "tf2", "tfe", "torch"],
-    default="tf",
+    default="tf2",
     help="The DL framework specifier.",
 )
 parser.add_argument(
@@ -42,7 +42,7 @@ parser.add_argument(
     "--stop-iters", type=int, default=50, help="Number of iterations to train."
 )
 parser.add_argument(
-    "--stop-timesteps", type=int, default=100000, help="Number of timesteps to train."
+    "--stop-timesteps", type=int, default=6000, help="Number of timesteps to train."
 )
 parser.add_argument(
     "--stop-reward", type=float, default=300, help="Reward at which we stop training."
@@ -59,8 +59,11 @@ parser.add_argument(
     help="Init Ray in local mode for easier debugging.",
 )
 parser.add_argument(
-    "--checkpoint-path", type=str, default="/tmp/rllib_checkpoint", help="Path where checkpoint is saved."
+    "--checkpoint-path", type=str, default=r"C:\Users\Randy Hodges/ray_results2/dot_single/first/", help="Path where checkpoint is saved."
 )
+# parser.add_argument(
+#     "--checkpoint-path", type=str, default=r"C:\Users\Randy Hodges\Documents\GitHub\Dot-Finding-Agent\checkpoints\rllib_single\checkpoint1", help="Path where checkpoint is saved."
+# )
 # endregion
 
 if __name__ == "__main__":
@@ -72,13 +75,14 @@ if __name__ == "__main__":
     ray.init(local_mode=args.local_mode)
     
     config = {
-        "env": dot_environment.dot_environment,  # or "corridor" if registered above
+        "env": dot_environment, 
         "env_config": {
             "corridor_length": 5,
         },
         # Use GPUs iff `RLLIB_NUM_GPUS` env var set to > 0.
-        "num_gpus": int(os.environ.get("RLLIB_NUM_GPUS", "0")),
-        "num_workers": 1,  # parallelism
+        # "num_gpus": int(os.environ.get("RLLIB_NUM_GPUS", "0")),
+        "num_gpus": 0,
+        # "num_workers": 1,  # parallelism
         "framework": args.framework,
     }
 
@@ -99,7 +103,9 @@ if __name__ == "__main__":
         ppo_config.update(config)
         # use fixed learning rate instead of grid search (needs tune)
         ppo_config["lr"] = 1e-3
-        trainer = ppo.PPO(config=ppo_config, env=dot_environment.dot_environment)
+        trainer = ppo.PPO(config=ppo_config, env=dot_environment)
+        trainer.restore(args.checkpoint_path)
+        exit()
         # run manual training loop and print results after each iteration
         for _ in range(args.stop_iters):
             result = trainer.train()
@@ -110,7 +116,11 @@ if __name__ == "__main__":
                 or result["episode_reward_mean"] >= args.stop_reward
             ):
                 rllib_trainer = trainer
-                trainer.save(args.checkpoint_path)
+                path_to_checkpoint = trainer.save(args.checkpoint_path)
+                print(
+                    "An Algorithm checkpoint has been created inside directory: "
+                    f"'{path_to_checkpoint}'."
+                )
                 break
     else:
         # automated run with Tune and grid search and TensorBoard
@@ -127,6 +137,6 @@ if __name__ == "__main__":
     ray.shutdown()
 
     print(rllib_trainer)
-    env = dot_environment.dot_environment()
+    env = dot_environment()
     for _ in range(2):
         render(env, rllib_trainer, rllib=True)

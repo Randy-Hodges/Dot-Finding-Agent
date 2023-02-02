@@ -14,6 +14,6 @@ REWARD_SIZE = 5
 # math.sqrt(REWARD_SIZE_UNITS*4/math.pi)*points_per_unit_width
 BORDER_DELTA = 0
 ZERO_LIMIT = 4e-2
-NUM_STARTING_AGENTS = 20
+NUM_STARTING_AGENTS = 3
 
 

@@ -1,17 +1,19 @@
+# 
+# TODO: look at using GPU, saving and loading model
 import argparse
 import os
 import random  
-from turtle import dot
 
 import ray
-from ray import air, tune
+# from ray import air, tune
 from ray.rllib.algorithms import ppo
 from ray.rllib.algorithms.ppo import PPOConfig
+# from ray.rllib.algorithms.algorithm import Algorithm
 from ray.rllib.policy.policy import PolicySpec
-from ray.rllib.examples.models.shared_weights_model import (
-    SharedWeightsModel1,
-    SharedWeightsModel2,
-)
+# from ray.rllib.examples.models.shared_weights_model import (
+#     SharedWeightsModel1,
+#     SharedWeightsModel2,
+# )
 # from ray.rllib.env.env_context import EnvContext
 # from ray.rllib.models import ModelCatalog
 # from ray.rllib.models.tf.tf_modelv2 import TFModelV2
@@ -19,7 +21,7 @@ from ray.rllib.examples.models.shared_weights_model import (
 # from ray.rllib.models.torch.torch_modelv2 import TorchModelV2
 # from ray.rllib.models.torch.fcnet import FullyConnectedNetwork as TorchFC
 # from ray.rllib.utils.framework import try_import_tf, try_import_torch
-from ray.rllib.utils.test_utils import check_learning_achieved
+# from ray.rllib.utils.test_utils import check_learning_achieved
 from ray.tune.logger import pretty_print
 import warnings
 warnings.filterwarnings('ignore')
@@ -29,7 +31,7 @@ from multi_dot_environment import MultiDotEnvironment
 from bw_configs import *
 # -------------------------------------------------------------------------------------------
 
-# region Parser
+# region Parser with arguments
 parser = argparse.ArgumentParser()
 parser.add_argument(
     "--run", type=str, default="PPO", help="The RLlib-registered algorithm to use."
@@ -37,7 +39,7 @@ parser.add_argument(
 parser.add_argument(
     "--framework",
     choices=["tf", "tf2", "tfe", "torch"],
-    default="tf",
+    default="tf2",
     help="The DL framework specifier.",
 )
 parser.add_argument(
@@ -50,7 +52,7 @@ parser.add_argument(
     "--stop-iters", type=int, default=50, help="Number of iterations to train."
 )
 parser.add_argument(
-    "--stop-timesteps", type=int, default=40000, help="Number of timesteps to train."
+    "--stop-timesteps", type=int, default=10000, help="Number of timesteps to train."
 )
 parser.add_argument(
     "--stop-reward", type=float, default=500, help="Reward at which we stop training."
@@ -67,7 +69,8 @@ parser.add_argument(
     help="Init Ray in local mode for easier debugging.",
 )
 parser.add_argument(
-    "--checkpoint-path", type=str, default="/tmp/rllib_checkpoint", help="Path where checkpoint is saved."
+    # C:\Users\Randy Hodges/ray_results/PPO_MultiDotEnvironment_2023
+    "--checkpoint-path", type=str, default=r"C:\Users\Randy Hodges/ray_results/PPO_MultiDotEnvironment_2023", help="Path where checkpoint is saved."
 )
 parser.add_argument("--num-agents", type=int, default=NUM_STARTING_AGENTS)
 parser.add_argument("--num-policies", type=int, default=NUM_STARTING_AGENTS)
@@ -84,15 +87,16 @@ def gen_policy(i):
 
 
 def policy_mapping_fn(agent_id, episode = None, worker = None, **kwargs):
-    pol_id = policy_ids[int(agent_id)] # kinda jank atm, but works
+    """Given an Agent Id, this function returns a corresponding policy ID """
+    pol_id = policy_ids[int(agent_id)] # kinda jank/feels wrong atm, but works
     return pol_id
 
 
 
 if __name__ == "__main__":
+    print(os.environ.get("RLLIB_NUM_GPUS", "0"))
     args = parser.parse_args()
-    print(args)
-    args.no_tune = True
+    args.load = True
     print(f"Running with following CLI options: {args}")
     ray.init(local_mode=args.local_mode)
 
@@ -103,10 +107,11 @@ if __name__ == "__main__":
     # Configs
     config = (
         PPOConfig()
-        # .environment(MultiDotEnvironment)
+        # .environment(MultiDotEnvironment) # was having trouble with this one
         .framework(args.framework)
         .multi_agent(policies=policies, policy_mapping_fn=policy_mapping_fn)
-        .resources(num_gpus=int(os.environ.get("RLLIB_NUM_GPUS", "0")))
+        # .resources(num_gpus=int(os.environ.get("RLLIB_NUM_GPUS", "0")))
+        .resources(num_gpus=1)
     )
     config = config.to_dict()
     config["env"] = MultiDotEnvironment
@@ -118,7 +123,7 @@ if __name__ == "__main__":
 
     # Algorithm/Training
     rllib_trainer = "my model doesn't exist yet"
-    if args.no_tune:
+    if not args.load:
         print("no tune")
         trainer = ppo.PPO(config=config, env=MultiDotEnvironment)
         # run manual training loop and print results after each iteration
@@ -131,23 +136,22 @@ if __name__ == "__main__":
                 # or result["episode_reward_mean"] >= args.stop_reward
             ):
                 rllib_trainer = trainer
-                trainer.save(args.checkpoint_path)
+                path_to_checkpoint = trainer.save(args.checkpoint_path)
+                print(
+                    "An Algorithm checkpoint has been created inside directory: "
+                    f"'{path_to_checkpoint}'."
+                )
+                # trainer.save(args.checkpoint_path)
                 break
-    # else:
-    #     # automated run with Tune and grid search and TensorBoard
-    #     print("Training automatically with Ray Tune")
-    #     tuner = tune.Tuner(
-    #         args.run, param_space=config, run_config=air.RunConfig(stop=stop)
-    #     )
-    #     results = tuner.fit()
-
-    #     if args.as_test:
-    #         print("Checking if learning goals were achieved")
-    #         check_learning_achieved(results, args.stop_reward)
-
+    else:
+        pass 
+        # trainer = ppo.from_checkpoint(args.checkpoint_path)
+        trainer = ppo.PPO(config=config, env=MultiDotEnvironment)
+        trainer.restore(args.checkpoint_path)
+        
     ray.shutdown()
 
     # Visualization
     env = MultiDotEnvironment()
-    for _ in range(3):
+    for _ in range(2):
         render_multi(env, rllib_trainer, rllib=True)
