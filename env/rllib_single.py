@@ -59,7 +59,7 @@ parser.add_argument(
     help="Init Ray in local mode for easier debugging.",
 )
 parser.add_argument(
-    "--checkpoint-path", type=str, default=r"C:\Users\Randy Hodges/ray_results2/dot_single/first/", help="Path where checkpoint is saved."
+    "--checkpoint-path", type=str, default=r"model_training\rllib_single\checkpoints\cp1", help="Path where checkpoint is saved."
 )
 # parser.add_argument(
 #     "--checkpoint-path", type=str, default=r"C:\Users\Randy Hodges\Documents\GitHub\Dot-Finding-Agent\checkpoints\rllib_single\checkpoint1", help="Path where checkpoint is saved."
