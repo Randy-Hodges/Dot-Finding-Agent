@@ -1,6 +1,11 @@
 # Dot-Finding-Agent
 This project aims to use machine learning (specifically an Actor-Critic method) to have an agent learn how to play a minigame.
 
+### Update!
+Since creating this repo I have gone through many different tools and learned a lot. I implemented my own actor-critic method, used tools like gym, pettingzoo, and rllib, and eventually got my multiagent environment running. Now that I have accomplished what I want to do in this repo, I can move on to my new goal - creating a 2d life simulation. This is occuring in the repo "CreatureEnvironment2D" which is not yet public. In there I am using this code as a base, cleaning up the code and altering it to fit my simulation needs. Yay for progess!
+
+![multiagent working](media/agents.gif)
+
 ### The minigame
 This is a simple game where the player controls one dot in a 2d plane and is trying to move their dot to the randomly placed 'target' dot. The player uses the arrow keys to apply forces to their dot, and this (ideally) pushes their dot towards the target dot. Once the target dot is collided with, the score increases and the target dot gets randomly moved to a new location. The game ends once time expires. There is a bit of momentum and a slight drag force on the player dot to make the game less trivial. 
 
