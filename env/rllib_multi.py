@@ -55,6 +55,7 @@ def policy_mapping_fn(agent_id, episode = None, worker = None, **kwargs):
 
 
 def find_checkpoint_path():
+    """Finds the lastest checkpoint directory"""
     entries = os.listdir(r"model_training\rllib_multi\checkpoints\cp1")
     numbers = re.compile(r'(\d+)')
     def numericalSort(value):
@@ -64,6 +65,7 @@ def find_checkpoint_path():
     entries = sorted(entries, key=numericalSort)
     # for entry in entries:
     #     print(entry)
+    # Last entry minus the "preserved_code" folder
     return entries[-2]
 
 
@@ -147,13 +149,14 @@ if __name__ == "__main__":
     # Algorithm/Training
     args.load = True
     args.stop_timesteps = 8000
-    args.save = True
+    args.save = False
     # args.tune = True
-    # args.perform = True
+    args.perform = True
     rllib_trainer = "my model doesn't exist yet"
     trainer = ppo.PPO(config=config, env=MultiDotEnvironment)
     if args.load:
         trainer.restore(args.load_path)
+        rllib_trainer = trainer
     # run manual training loop and print results after each iteration
     for i in range(args.stop_iters):
         if args.perform:

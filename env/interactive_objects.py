@@ -16,7 +16,6 @@ class Player(object):
                 mass = 10,
                 force_scale = 5,
                 max_speed = 20,
-                friction = .1,
                 is_human = False
                 ):
         self.pid = Player.id
@@ -29,7 +28,7 @@ class Player(object):
         self.mass = mass if mass != 0 else 10
         self.force_scale = force_scale
         self.max_speed = max_speed
-        self.friction = friction
+        self.friction = FRICTION
         self.is_human = is_human
 
 
